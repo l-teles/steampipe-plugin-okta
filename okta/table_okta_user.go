@@ -41,12 +41,18 @@ func tableOktaUser() *plugin.Table {
 		},
 		HydrateConfig: []plugin.HydrateConfig{
 			{
-				Func: listUserGroups,
+				Func:           listUserGroups,
 				MaxConcurrency: 10,
+				IgnoreConfig: &plugin.IgnoreConfig{
+					ShouldIgnoreError: isNotFoundError([]string{"Not found", "context deadline exceeded", "context canceled"}),
+				},
 			},
 			{
-				Func: listAssignedRolesForUser,
+				Func:           listAssignedRolesForUser,
 				MaxConcurrency: 10,
+				IgnoreConfig: &plugin.IgnoreConfig{
+					ShouldIgnoreError: isNotFoundError([]string{"Not found", "context deadline exceeded", "context canceled"}),
+				},
 			},
 		},
 		Columns: commonColumns([]*plugin.Column{
@@ -209,9 +215,6 @@ func listUserGroups(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 	groups, resp, err := client.User.ListUserGroups(ctx, user.Id)
 	if err != nil {
 		logger.Error("listUserGroups", "list_user_groups_error", err)
-		if strings.Contains(err.Error(), "Not found") {
-			return nil, nil
-		}
 		return nil, err
 	}
 
@@ -241,9 +244,6 @@ func listAssignedRolesForUser(ctx context.Context, d *plugin.QueryData, h *plugi
 	roles, resp, err := client.User.ListAssignedRolesForUser(ctx, user.Id, &query.Params{})
 	if err != nil {
 		logger.Error("listAssignedRolesForUser", "list_assigned_roles_for_user_error", err)
-		if strings.Contains(err.Error(), "Not found") {
-			return nil, nil
-		}
 		return nil, err
 	}
 
