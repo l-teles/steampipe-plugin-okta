@@ -233,15 +233,17 @@ func listAssignedRolesForUser(ctx context.Context, d *plugin.QueryData, h *plugi
 	logger.Trace("listAssignedRolesForUser")
 	user := h.Item.(*okta.User)
 	client, err := Connect(ctx, d)
-	plugin.Logger(ctx).Error("User ID ===>>", user.Id)
 	if err != nil {
-		logger.Error("listUserGroups", "connect_error", err)
+		logger.Error("listAssignedRolesForUser", "connect_error", err)
 		return nil, err
 	}
 
 	roles, resp, err := client.User.ListAssignedRolesForUser(ctx, user.Id, &query.Params{})
 	if err != nil {
 		logger.Error("listAssignedRolesForUser", "list_assigned_roles_for_user_error", err)
+		if strings.Contains(err.Error(), "Not found") {
+			return nil, nil
+		}
 		return nil, err
 	}
 
