@@ -61,7 +61,57 @@ type AppGroupInfo struct {
 func listApplicationAssignedGroups(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	logger := plugin.Logger(ctx)
 	logger.Trace("listApplicationAssignedGroups")
-	appId := h.Item.(*okta.Application).Id
+	
+	// Extract appId from union type
+	var appId string
+	switch item := h.Item.(type) {
+	case okta.ListApplications200ResponseInner:
+		if actual := item.GetActualInstance(); actual != nil {
+			// Try to get ID from different application types
+			switch app := actual.(type) {
+			case *okta.AutoLoginApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.BasicAuthApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.BookmarkApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.BrowserPluginApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.OpenIdConnectApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.SamlApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.Saml11Application:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.SecurePasswordStoreApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.WsFederationApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			}
+		}
+	}
+
+	if appId == "" {
+		return nil, nil
+	}
 
 	client, err := Connect(ctx, d)
 	if err != nil {
@@ -73,11 +123,12 @@ func listApplicationAssignedGroups(ctx context.Context, d *plugin.QueryData, h *
 	// Minimize the API call with the given application id
 	if equalQuals["app_id"] != nil {
 		if equalQuals["app_id"].GetStringValue() != "" {
-			if equalQuals["app_id"].GetStringValue() != "" && equalQuals["app_id"].GetStringValue() != appId {
+			if equalQuals["app_id"].GetStringValue() != appId {
 				return nil, nil
 			}
 		} else if len(getListValues(equalQuals["app_id"].GetListValue())) > 0 {
-			if !slices.Contains(types.StringValueSlice(getListValues(equalQuals["app_id"].GetListValue())), appId) {
+			strValues := types.StringValueSlice(getListValues(equalQuals["app_id"].GetListValue()))
+			if !slices.Contains(strValues, appId) {
 				return nil, nil
 			}
 		}
@@ -85,20 +136,18 @@ func listApplicationAssignedGroups(ctx context.Context, d *plugin.QueryData, h *
 
 	// Default maximum limit set as per documentation
 	// https://developer.okta.com/docs/reference/api/apps/#list-groups-assigned-to-application
-	input := query.Params{
-		Limit: 200,
-	}
+	maxLimit := int64(200)
 
 	// If the requested number of items is less than the paging max limit
 	// set the limit to that instead
 	limit := d.QueryContext.Limit
 	if d.QueryContext.Limit != nil {
-		if *limit < input.Limit {
-			input.Limit = *limit
+		if *limit < maxLimit {
+			maxLimit = *limit
 		}
 	}
 
-	groups, resp, err := client.ApplicationAPI.ListApplicationGroupAssignments(ctx, appId, &input)
+	groups, resp, err := client.ApplicationGroupsAPI.ListApplicationGroupAssignments(ctx, appId).Limit(int32(maxLimit)).Execute()
 
 	if err != nil {
 		logger.Error("listApplicationAssignedGroups", "list_app_groups_error", err)
@@ -106,7 +155,7 @@ func listApplicationAssignedGroups(ctx context.Context, d *plugin.QueryData, h *
 	}
 
 	for _, group := range groups {
-		d.StreamListItem(ctx, AppGroupInfo{appId, *group})
+		d.StreamListItem(ctx, AppGroupInfo{appId, group})
 
 		// Context can be cancelled due to manual cancellation or the limit has been hit
 		if d.RowsRemaining(ctx) == 0 {
@@ -116,14 +165,14 @@ func listApplicationAssignedGroups(ctx context.Context, d *plugin.QueryData, h *
 
 	// paging
 	for resp.HasNextPage() {
-		var nextGroupSet []*okta.ApplicationGroupAssignment
-		resp, err = resp.Next(ctx, &nextGroupSet)
+		var nextGroupSet []okta.ApplicationGroupAssignment
+		resp, err = resp.Next(&nextGroupSet)
 		if err != nil {
 			logger.Error("listApplicationAssignedGroups", "list_app_groups_paging_error", err)
 			return nil, err
 		}
 		for _, group := range nextGroupSet {
-			d.StreamListItem(ctx, AppGroupInfo{appId, *group})
+			d.StreamListItem(ctx, AppGroupInfo{appId, group})
 
 			// Context can be cancelled due to manual cancellation or the limit has been hit
 			if d.RowsRemaining(ctx) == 0 {
@@ -153,7 +202,7 @@ func getApplicationAssignedGroup(ctx context.Context, d *plugin.QueryData, h *pl
 		return nil, err
 	}
 
-	group, _, err := client.ApplicationAPI.GetApplicationGroupAssignment(ctx, appId, groupId, &query.Params{})
+	group, _, err := client.ApplicationGroupsAPI.GetApplicationGroupAssignment(ctx, appId, groupId).Execute()
 	if err != nil {
 		logger.Error("getApplicationAssignedGroup", "get_app_group_error", err)
 		return nil, err

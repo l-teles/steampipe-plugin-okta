@@ -69,16 +69,14 @@ func listOktaApplications(ctx context.Context, d *plugin.QueryData, _ *plugin.Hy
 
 	// Default maximum limit set as per documentation
 	// https://developer.okta.com/docs/reference/api/apps/#list-applications
-	input := query.Params{
-		Limit: 200,
-	}
+	maxLimit := int64(200)
 
 	// If the requested number of items is less than the paging max limit
 	// set the limit to that instead
 	limit := d.QueryContext.Limit
 	if d.QueryContext.Limit != nil {
-		if *limit < input.Limit {
-			input.Limit = *limit
+		if *limit < maxLimit {
+			maxLimit = *limit
 		}
 	}
 
@@ -90,13 +88,18 @@ func listOktaApplications(ctx context.Context, d *plugin.QueryData, _ *plugin.Hy
 		queryFilter = equalQuals["filter"].GetStringValue()
 	}
 
+	var filterStr string
 	if queryFilter != "" {
-		input.Filter = queryFilter
+		filterStr = queryFilter
 	} else if len(filter) > 0 {
-		input.Filter = strings.Join(filter, " and ")
+		filterStr = strings.Join(filter, " and ")
 	}
 
-	applications, resp, err := client.ApplicationAPI.ListApplications(ctx, &input)
+	req := client.ApplicationAPI.ListApplications(ctx).Limit(int32(maxLimit))
+	if filterStr != "" {
+		req = req.Filter(filterStr)
+	}
+	applications, resp, err := req.Execute()
 	if err != nil {
 		logger.Error("listOktaApplications", "list_applications_error", err)
 		if strings.Contains(err.Error(), "Not found") {
@@ -116,8 +119,8 @@ func listOktaApplications(ctx context.Context, d *plugin.QueryData, _ *plugin.Hy
 
 	// paging
 	for resp.HasNextPage() {
-		var nextApplicationSet []*okta.Application
-		resp, err = resp.Next(ctx, &nextApplicationSet)
+		var nextApplicationSet []okta.ListApplications200ResponseInner
+		resp, err = resp.Next(&nextApplicationSet)
 		if err != nil {
 			logger.Error("listOktaApplications", "list_applications_paging_error", err)
 			return nil, err
@@ -153,7 +156,7 @@ func getOktaApplication(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 		return nil, err
 	}
 
-	app, _, err := client.ApplicationAPI.GetApplication(ctx, appId, okta.NewApplication(), &query.Params{})
+	app, _, err := client.ApplicationAPI.GetApplication(ctx, appId).Execute()
 	if err != nil {
 		logger.Error("getOktaApplication", "get_application_error", err)
 		return nil, err
