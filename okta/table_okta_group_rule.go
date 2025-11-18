@@ -3,8 +3,7 @@ package okta
 import (
 	"context"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
@@ -67,7 +66,7 @@ func listOktaGroupRules(ctx context.Context, d *plugin.QueryData, _ *plugin.Hydr
 	}
 
 	// Fetch group rules
-	groupRules, resp, err := client.Group.ListGroupRules(ctx, &input)
+	groupRules, resp, err := client.GroupAPI.ListGroupRules(ctx, &input)
 	if err != nil {
 		logger.Error("okta_group_rule.listOktaGroupRules", "api_error", err)
 		return nil, err
@@ -127,7 +126,7 @@ func getOktaGroupRule(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 	}
 
 	// Fetch the group rule by ID
-	groupRule, _, err := client.Group.GetGroupRule(ctx, ruleId, nil)
+	groupRule, _, err := client.GroupAPI.GetGroupRule(ctx, ruleId, nil)
 	if err != nil {
 		logger.Error("okta_group_rule.getOktaGroupRule", "api_error", err)
 		return nil, err

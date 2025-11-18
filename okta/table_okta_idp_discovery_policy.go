@@ -3,8 +3,7 @@ package okta
 import (
 	"context"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
@@ -56,7 +55,7 @@ func listOktaIdpDiscoveryPolicies(ctx context.Context, d *plugin.QueryData, _ *p
 	if d.Table.Name == "okta_idp_discovery_policy" {
 		input.Type = "IDP_DISCOVERY"
 	}
-	policies, resp, err := client.Policy.ListPolicies(ctx, input)
+	policies, resp, err := client.PolicyAPI.ListPolicies(ctx, input)
 	if err != nil {
 		logger.Error("listOktaIdpDiscoveryPolicies", "list_policies_error", err)
 		return nil, err

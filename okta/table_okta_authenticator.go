@@ -3,7 +3,7 @@ package okta
 import (
 	"context"
 
-	oktaV5 "github.com/okta/okta-sdk-golang/v5/okta"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
@@ -51,7 +51,7 @@ func tableOktaAuthenticator() *plugin.Table {
 
 func listOktaAuthenticators(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateData) (interface{}, error) {
 	logger := plugin.Logger(ctx)
-	client, err := ConnectV5(ctx, d)
+	client, err := Connect(ctx, d)
 	if err != nil {
 		logger.Error("okta_authenticator.listOktaAuthenticators", "connect_error", err)
 		return nil, err
@@ -75,7 +75,7 @@ func listOktaAuthenticators(ctx context.Context, d *plugin.QueryData, _ *plugin.
 
 	// pagination
 	for resp.HasNextPage() {
-		var nextSet []oktaV5.ListAuthenticators200ResponseInner
+		var nextSet []okta.ListAuthenticators200ResponseInner
 		resp, err = resp.Next(&nextSet)
 		if err != nil {
 			logger.Error("okta_authenticator.listOktaAuthenticators", "paging_error", err)
@@ -105,7 +105,7 @@ func getOktaAuthenticator(ctx context.Context, d *plugin.QueryData, _ *plugin.Hy
 		return nil, nil
 	}
 
-	client, err := ConnectV5(ctx, d)
+	client, err := Connect(ctx, d)
 	if err != nil {
 		logger.Error("okta_authenticator.getOktaAuthenticator", "connect_error", err)
 		return nil, err

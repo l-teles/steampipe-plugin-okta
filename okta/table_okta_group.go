@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -115,7 +114,7 @@ func listOktaGroups(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateD
 		input.Filter = strings.Join(filter, " and ")
 	}
 
-	groups, resp, err := client.Group.ListGroups(ctx, &input)
+	groups, resp, err := client.GroupAPI.ListGroups(ctx, &input)
 	if err != nil {
 		logger.Error("listOktaGroups", "list_groups_error", err)
 		return nil, err
@@ -174,7 +173,7 @@ func getOktaGroup(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		return nil, err
 	}
 
-	group, _, err := client.Group.GetGroup(ctx, groupId)
+	group, _, err := client.GroupAPI.GetGroup(ctx, groupId)
 	if err != nil {
 		logger.Error("getOktaGroup", "get_group_error", err)
 		return nil, err
@@ -200,7 +199,7 @@ func listGroupMembers(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		return nil, err
 	}
 
-	groupMembers, resp, err := client.Group.ListGroupUsers(ctx, groupId, &query.Params{})
+	groupMembers, resp, err := client.GroupAPI.ListGroupUsers(ctx, groupId, &query.Params{})
 	if err != nil {
 		logger.Error("listGroupMembers", "list_group_users_error", err)
 		return nil, err

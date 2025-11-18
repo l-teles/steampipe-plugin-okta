@@ -3,8 +3,7 @@ package okta
 import (
 	"context"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -104,7 +103,7 @@ func listApplicationAssignedUsers(ctx context.Context, d *plugin.QueryData, h *p
 		}
 	}
 
-	users, resp, err := client.Application.ListApplicationUsers(ctx, appId, input)
+	users, resp, err := client.ApplicationAPI.ListApplicationUsers(ctx, appId, input)
 
 	if err != nil {
 		logger.Error("listApplicationAssignedUsers", "list_app_users_error", err)
@@ -159,7 +158,7 @@ func getApplicationAssignedUser(ctx context.Context, d *plugin.QueryData, h *plu
 		return nil, err
 	}
 
-	user, _, err := client.Application.GetApplicationUser(ctx, appId, userId, &query.Params{})
+	user, _, err := client.ApplicationAPI.GetApplicationUser(ctx, appId, userId, &query.Params{})
 	if err != nil {
 		logger.Error("getApplicationAssignedUser", "get_app_user_error", err)
 		return nil, err

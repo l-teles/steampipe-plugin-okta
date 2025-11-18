@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	"github.com/ettle/strcase"
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -129,7 +128,7 @@ func listOktaUsers(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateDa
 		input.Filter = strings.Join(filter, " and ")
 	}
 
-	users, resp, err := client.User.ListUsers(ctx, &input)
+	users, resp, err := client.UserAPI.ListUsers(ctx, &input)
 	if err != nil {
 		logger.Error("listOktaUsers", "list_users_error", err)
 		return nil, err
@@ -187,7 +186,7 @@ func getOktaUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 		return nil, err
 	}
 
-	user, _, err := client.User.GetUser(ctx, userId)
+	user, _, err := client.UserAPI.GetUser(ctx, userId)
 	if err != nil {
 		logger.Error("getOktaUser", "get_user_error", err)
 		return nil, err
@@ -206,7 +205,7 @@ func listUserGroups(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		return nil, err
 	}
 
-	groups, resp, err := client.User.ListUserGroups(ctx, user.Id)
+	groups, resp, err := client.UserAPI.ListUserGroups(ctx, user.Id)
 	if err != nil {
 		logger.Error("listUserGroups", "list_user_groups_error", err)
 		if strings.Contains(err.Error(), "Not found") {
@@ -238,7 +237,7 @@ func listAssignedRolesForUser(ctx context.Context, d *plugin.QueryData, h *plugi
 		return nil, err
 	}
 
-	roles, resp, err := client.User.ListAssignedRolesForUser(ctx, user.Id, &query.Params{})
+	roles, resp, err := client.UserAPI.ListAssignedRolesForUser(ctx, user.Id, &query.Params{})
 	if err != nil {
 		logger.Error("listAssignedRolesForUser", "list_assigned_roles_for_user_error", err)
 		return nil, err

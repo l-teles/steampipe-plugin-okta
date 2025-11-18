@@ -5,8 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
@@ -99,7 +98,7 @@ func listApplicationAssignedGroups(ctx context.Context, d *plugin.QueryData, h *
 		}
 	}
 
-	groups, resp, err := client.Application.ListApplicationGroupAssignments(ctx, appId, &input)
+	groups, resp, err := client.ApplicationAPI.ListApplicationGroupAssignments(ctx, appId, &input)
 
 	if err != nil {
 		logger.Error("listApplicationAssignedGroups", "list_app_groups_error", err)
@@ -154,7 +153,7 @@ func getApplicationAssignedGroup(ctx context.Context, d *plugin.QueryData, h *pl
 		return nil, err
 	}
 
-	group, _, err := client.Application.GetApplicationGroupAssignment(ctx, appId, groupId, &query.Params{})
+	group, _, err := client.ApplicationAPI.GetApplicationGroupAssignment(ctx, appId, groupId, &query.Params{})
 	if err != nil {
 		logger.Error("getApplicationAssignedGroup", "get_app_group_error", err)
 		return nil, err

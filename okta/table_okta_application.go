@@ -4,8 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -97,7 +96,7 @@ func listOktaApplications(ctx context.Context, d *plugin.QueryData, _ *plugin.Hy
 		input.Filter = strings.Join(filter, " and ")
 	}
 
-	applications, resp, err := client.Application.ListApplications(ctx, &input)
+	applications, resp, err := client.ApplicationAPI.ListApplications(ctx, &input)
 	if err != nil {
 		logger.Error("listOktaApplications", "list_applications_error", err)
 		if strings.Contains(err.Error(), "Not found") {
@@ -154,7 +153,7 @@ func getOktaApplication(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 		return nil, err
 	}
 
-	app, _, err := client.Application.GetApplication(ctx, appId, okta.NewApplication(), &query.Params{})
+	app, _, err := client.ApplicationAPI.GetApplication(ctx, appId, okta.NewApplication(), &query.Params{})
 	if err != nil {
 		logger.Error("getOktaApplication", "get_application_error", err)
 		return nil, err

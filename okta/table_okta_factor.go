@@ -5,8 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	oktav4 "github.com/okta/okta-sdk-golang/v4/okta"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
@@ -71,7 +70,7 @@ type OktaFactor struct {
 
 func listOktaFactors(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	logger := plugin.Logger(ctx)
-	client, err := ConnectV4(ctx, d)
+	client, err := Connect(ctx, d)
 	if err != nil {
 		logger.Error("okta_factor.listOktaFactors", "connect_error", err)
 		return nil, err
@@ -170,7 +169,7 @@ func getOktaFactor(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDa
 		return nil, nil
 	}
 
-	client, err := ConnectV4(ctx, d)
+	client, err := Connect(ctx, d)
 	if err != nil {
 		logger.Error("okta_factor.getOktaFactor", "connection_error", err)
 		return nil, err

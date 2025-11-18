@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	oktav4 "github.com/okta/okta-sdk-golang/v4/okta"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -71,7 +70,7 @@ func listOktaGroupOwners(ctx context.Context, d *plugin.QueryData, h *plugin.Hyd
 		return nil, nil
 	}
 
-	client, err := ConnectV4(ctx, d)
+	client, err := Connect(ctx, d)
 	if err != nil {
 		logger.Error("okta_group_owner.listGroupOwners", "connect_error", err)
 		return nil, err

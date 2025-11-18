@@ -3,8 +3,7 @@ package okta
 import (
 	"context"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
@@ -57,7 +56,7 @@ func listOktaAuthenticationPolicies(ctx context.Context, d *plugin.QueryData, _ 
 		return nil, err
 	}
 
-	policies, resp, err := client.Policy.ListPolicies(ctx, input)
+	policies, resp, err := client.PolicyAPI.ListPolicies(ctx, input)
 	if err != nil {
 		logger.Error("listOktaAuthenticationPolicies", "list_policies_error", err)
 		return nil, err

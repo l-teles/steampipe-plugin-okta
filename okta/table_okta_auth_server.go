@@ -4,8 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -82,7 +81,7 @@ func listOktaAuthServers(ctx context.Context, d *plugin.QueryData, _ *plugin.Hyd
 		}
 	}
 
-	servers, resp, err := client.AuthorizationServer.ListAuthorizationServers(ctx, &input)
+	servers, resp, err := client.AuthorizationServerAPI.ListAuthorizationServers(ctx, &input)
 	if err != nil {
 		logger.Error("listOktaAuthServers", "list_auth_servers_error", err)
 		if strings.Contains(err.Error(), "Not found") {
@@ -139,7 +138,7 @@ func getOktaAuthServer(ctx context.Context, d *plugin.QueryData, h *plugin.Hydra
 		return nil, err
 	}
 
-	server, _, err := client.AuthorizationServer.GetAuthorizationServer(ctx, authServerId)
+	server, _, err := client.AuthorizationServerAPI.GetAuthorizationServer(ctx, authServerId)
 	if err != nil {
 		logger.Error("getOktaAuthServer", "get_auth_servers_error", err)
 		return nil, err

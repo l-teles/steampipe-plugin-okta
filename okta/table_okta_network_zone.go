@@ -3,7 +3,7 @@ package okta
 import (
 	"context"
 
-	"github.com/okta/okta-sdk-golang/v5/okta"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
@@ -53,7 +53,7 @@ func tableOktaNetworkZone() *plugin.Table {
 func listOktaNetworkZones(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateData) (interface{}, error) {
 	logger := plugin.Logger(ctx)
 
-	client, err := ConnectV5(ctx, d)
+	client, err := Connect(ctx, d)
 	if err != nil {
 		logger.Error("okta_network_zone.listOktaNetworkZones", "connect_error", err)
 		return nil, err
@@ -120,7 +120,7 @@ func listOktaNetworkZones(ctx context.Context, d *plugin.QueryData, _ *plugin.Hy
 
 func getOktaNetworkZone(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateData) (interface{}, error) {
 	logger := plugin.Logger(ctx)
-	client, err := ConnectV5(ctx, d)
+	client, err := Connect(ctx, d)
 
 	id := d.EqualsQuals["id"].GetStringValue()
 	if id == "" {
