@@ -46,16 +46,12 @@ func listOktaIdpDiscoveryPolicies(ctx context.Context, d *plugin.QueryData, _ *p
 	logger := plugin.Logger(ctx)
 	client, err := Connect(ctx, d)
 
-	input := &query.Params{}
-
 	if err != nil {
 		logger.Error("listOktaIdpDiscoveryPolicies", "connect_error", err)
 		return nil, err
 	}
-	if d.Table.Name == "okta_idp_discovery_policy" {
-		input.Type = "IDP_DISCOVERY"
-	}
-	policies, resp, err := client.PolicyAPI.ListPolicies(ctx, input)
+
+	policies, resp, err := client.PolicyAPI.ListPolicies(ctx).Type_("IDP_DISCOVERY").Execute()
 	if err != nil {
 		logger.Error("listOktaIdpDiscoveryPolicies", "list_policies_error", err)
 		return nil, err
@@ -70,8 +66,8 @@ func listOktaIdpDiscoveryPolicies(ctx context.Context, d *plugin.QueryData, _ *p
 	}
 	// paging
 	for resp.HasNextPage() {
-		var nextPolicySet []*okta.AuthorizationServerPolicy
-		resp, err = resp.Next(ctx, &nextPolicySet)
+		var nextPolicySet []okta.ListPolicies200ResponseInner
+		resp, err = resp.Next(&nextPolicySet)
 		if err != nil {
 			logger.Error("listOktaIdpDiscoveryPolicies", "list_policies_paging_error", err)
 			return nil, err

@@ -46,9 +46,6 @@ func tableOktaAuthenticationPolicy() *plugin.Table {
 
 func listOktaAuthenticationPolicies(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateData) (interface{}, error) {
 	logger := plugin.Logger(ctx)
-	input := &query.Params{
-		Type: "ACCESS_POLICY",
-	}
 
 	client, err := Connect(ctx, d)
 	if err != nil {
@@ -56,7 +53,7 @@ func listOktaAuthenticationPolicies(ctx context.Context, d *plugin.QueryData, _ 
 		return nil, err
 	}
 
-	policies, resp, err := client.PolicyAPI.ListPolicies(ctx, input)
+	policies, resp, err := client.PolicyAPI.ListPolicies(ctx).Type_("ACCESS_POLICY").Execute()
 	if err != nil {
 		logger.Error("listOktaAuthenticationPolicies", "list_policies_error", err)
 		return nil, err
@@ -73,8 +70,8 @@ func listOktaAuthenticationPolicies(ctx context.Context, d *plugin.QueryData, _ 
 
 	// paging
 	for resp.HasNextPage() {
-		var nextPolicySet []*okta.Policy
-		resp, err = resp.Next(ctx, &nextPolicySet)
+		var nextPolicySet []okta.ListPolicies200ResponseInner
+		resp, err = resp.Next(&nextPolicySet)
 		if err != nil {
 			logger.Error("listOktaAuthenticationPolicies", "list_policies_paging_error", err)
 			return nil, err
