@@ -3,6 +3,7 @@ package okta
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 
@@ -27,8 +28,12 @@ func Connect(ctx context.Context, d *plugin.QueryData) (*okta.Client, error) {
 
 	scopes := []string{"okta.users.read", "okta.groups.read", "okta.roles.read", "okta.apps.read", "okta.policies.read", "okta.authorizationServers.read", "okta.trustedOrigins.read", "okta.factors.read"}
 
+	// Create HTTP client with logging round tripper
+	loggingTransport := NewLoggingRoundTripper(ctx, nil)
+	httpClient := &http.Client{Transport: loggingTransport}
+
 	if domain != "" && token != "" {
-		_, client, err := okta.NewClient(ctx, okta.WithOrgUrl(domain), okta.WithToken(token), okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff))
+		_, client, err := okta.NewClient(ctx, okta.WithOrgUrl(domain), okta.WithToken(token), okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff), okta.WithHttpClientPtr(httpClient))
 		if err != nil {
 			return nil, err
 		}
@@ -38,7 +43,7 @@ func Connect(ctx context.Context, d *plugin.QueryData) (*okta.Client, error) {
 	}
 
 	if domain != "" && clientID != "" && privateKey != "" {
-		_, client, err := okta.NewClient(ctx, okta.WithOrgUrl(domain), okta.WithAuthorizationMode("PrivateKey"), okta.WithClientId(clientID), okta.WithPrivateKey(privateKey), okta.WithScopes(scopes), okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff))
+		_, client, err := okta.NewClient(ctx, okta.WithOrgUrl(domain), okta.WithAuthorizationMode("PrivateKey"), okta.WithClientId(clientID), okta.WithPrivateKey(privateKey), okta.WithScopes(scopes), okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff), okta.WithHttpClientPtr(httpClient))
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +60,7 @@ func Connect(ctx context.Context, d *plugin.QueryData) (*okta.Client, error) {
 	* 3. Environment variables
 	* 4. Configuration explicitly passed to the constructor (see the example in Getting started)
 	*	*/
-	_, client, err := okta.NewClient(ctx, okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff))
+	_, client, err := okta.NewClient(ctx, okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff), okta.WithHttpClientPtr(httpClient))
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +85,12 @@ func ConnectV4(ctx context.Context, d *plugin.QueryData) (*oktaV4.APIClient, err
 	}
 	scopes := []string{"okta.users.read", "okta.groups.read", "okta.roles.read", "okta.apps.read", "okta.policies.read", "okta.authorizationServers.read", "okta.trustedOrigins.read", "okta.factors.read", "okta.devices.read"}
 
+	// Create HTTP client with logging round tripper
+	loggingTransport := NewLoggingRoundTripper(ctx, nil)
+	httpClient := &http.Client{Transport: loggingTransport}
+
 	if domain != "" && token != "" {
-		oktaConfiguratiopn, err := oktaV4.NewConfiguration(oktaV4.WithOrgUrl(domain), oktaV4.WithToken(token), oktaV4.WithRequestTimeout(requestTimeout), oktaV4.WithRateLimitMaxRetries(maxRetries), oktaV4.WithRateLimitMaxBackOff(maxBackoff))
+		oktaConfiguratiopn, err := oktaV4.NewConfiguration(oktaV4.WithOrgUrl(domain), oktaV4.WithToken(token), oktaV4.WithRequestTimeout(requestTimeout), oktaV4.WithRateLimitMaxRetries(maxRetries), oktaV4.WithRateLimitMaxBackOff(maxBackoff), oktaV4.WithHttpClientPtr(httpClient))
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +101,7 @@ func ConnectV4(ctx context.Context, d *plugin.QueryData) (*oktaV4.APIClient, err
 	}
 
 	if domain != "" && clientID != "" && privateKey != "" {
-		oktaConfiguratiopn, err := oktaV4.NewConfiguration(oktaV4.WithOrgUrl(domain), oktaV4.WithAuthorizationMode("PrivateKey"), oktaV4.WithClientId(clientID), oktaV4.WithPrivateKey(privateKey), oktaV4.WithScopes(scopes), oktaV4.WithRequestTimeout(requestTimeout), oktaV4.WithRateLimitMaxRetries(maxRetries), oktaV4.WithRateLimitMaxBackOff(maxBackoff))
+		oktaConfiguratiopn, err := oktaV4.NewConfiguration(oktaV4.WithOrgUrl(domain), oktaV4.WithAuthorizationMode("PrivateKey"), oktaV4.WithClientId(clientID), oktaV4.WithPrivateKey(privateKey), oktaV4.WithScopes(scopes), oktaV4.WithRequestTimeout(requestTimeout), oktaV4.WithRateLimitMaxRetries(maxRetries), oktaV4.WithRateLimitMaxBackOff(maxBackoff), oktaV4.WithHttpClientPtr(httpClient))
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +121,7 @@ func ConnectV4(ctx context.Context, d *plugin.QueryData) (*oktaV4.APIClient, err
 	* 3. Environment variables
 	* 4. Configuration explicitly passed to the constructor (see the example in Getting started)
 	*	*/
-	oktaConfiguratiopn, err := oktaV4.NewConfiguration(oktaV4.WithRequestTimeout(requestTimeout), oktaV4.WithRateLimitMaxRetries(maxRetries), oktaV4.WithRateLimitMaxBackOff(maxBackoff))
+	oktaConfiguratiopn, err := oktaV4.NewConfiguration(oktaV4.WithRequestTimeout(requestTimeout), oktaV4.WithRateLimitMaxRetries(maxRetries), oktaV4.WithRateLimitMaxBackOff(maxBackoff), oktaV4.WithHttpClientPtr(httpClient))
 	if err != nil {
 		return nil, err
 	}
@@ -139,8 +148,12 @@ func ConnectV5(ctx context.Context, d *plugin.QueryData) (*oktaV5.APIClient, err
 
 	scopes := []string{"okta.users.read", "okta.groups.read", "okta.roles.read", "okta.apps.read", "okta.policies.read", "okta.authorizationServers.read", "okta.trustedOrigins.read", "okta.factors.read", "okta.devices.read"}
 
+	// Create HTTP client with logging round tripper
+	loggingTransport := NewLoggingRoundTripper(ctx, nil)
+	httpClient := &http.Client{Transport: loggingTransport}
+
 	if domain != "" && token != "" {
-		oktaConfiguratiopn, err := oktaV5.NewConfiguration(oktaV5.WithOrgUrl(domain), oktaV5.WithToken(token), oktaV5.WithRequestTimeout(requestTimeout), oktaV5.WithRateLimitMaxRetries(maxRetries), oktaV5.WithRateLimitMaxBackOff(maxBackoff))
+		oktaConfiguratiopn, err := oktaV5.NewConfiguration(oktaV5.WithOrgUrl(domain), oktaV5.WithToken(token), oktaV5.WithRequestTimeout(requestTimeout), oktaV5.WithRateLimitMaxRetries(maxRetries), oktaV5.WithRateLimitMaxBackOff(maxBackoff), oktaV5.WithHttpClientPtr(httpClient))
 		if err != nil {
 			return nil, err
 		}
@@ -151,7 +164,7 @@ func ConnectV5(ctx context.Context, d *plugin.QueryData) (*oktaV5.APIClient, err
 	}
 
 	if domain != "" && clientID != "" && privateKey != "" {
-		oktaConfiguratiopn, err := oktaV5.NewConfiguration(oktaV5.WithOrgUrl(domain), oktaV5.WithAuthorizationMode("PrivateKey"), oktaV5.WithClientId(clientID), oktaV5.WithPrivateKey(privateKey), oktaV5.WithScopes(scopes), oktaV5.WithRequestTimeout(requestTimeout), oktaV5.WithRateLimitMaxRetries(maxRetries), oktaV5.WithRateLimitMaxBackOff(maxBackoff))
+		oktaConfiguratiopn, err := oktaV5.NewConfiguration(oktaV5.WithOrgUrl(domain), oktaV5.WithAuthorizationMode("PrivateKey"), oktaV5.WithClientId(clientID), oktaV5.WithPrivateKey(privateKey), oktaV5.WithScopes(scopes), oktaV5.WithRequestTimeout(requestTimeout), oktaV5.WithRateLimitMaxRetries(maxRetries), oktaV5.WithRateLimitMaxBackOff(maxBackoff), oktaV5.WithHttpClientPtr(httpClient))
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +184,7 @@ func ConnectV5(ctx context.Context, d *plugin.QueryData) (*oktaV5.APIClient, err
 	* 3. Environment variables
 	* 4. Configuration explicitly passed to the constructor (see the example in Getting started)
 	*	*/
-	oktaConfiguratiopn, err := oktaV5.NewConfiguration(oktaV5.WithRequestTimeout(requestTimeout), oktaV5.WithRateLimitMaxRetries(maxRetries), oktaV5.WithRateLimitMaxBackOff(maxBackoff))
+	oktaConfiguratiopn, err := oktaV5.NewConfiguration(oktaV5.WithRequestTimeout(requestTimeout), oktaV5.WithRateLimitMaxRetries(maxRetries), oktaV5.WithRateLimitMaxBackOff(maxBackoff), oktaV5.WithHttpClientPtr(httpClient))
 	if err != nil {
 		return nil, err
 	}
