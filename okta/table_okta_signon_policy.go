@@ -47,17 +47,12 @@ func listOktaSignonPolicies(ctx context.Context, d *plugin.QueryData, _ *plugin.
 	logger := plugin.Logger(ctx)
 	client, err := Connect(ctx, d)
 
-	input := &query.Params{}
 	if err != nil {
 		logger.Error("listOktaSignonPolicies", "connect_error", err)
 		return nil, err
 	}
 
-	if d.Table.Name == "okta_signon_policy" {
-		input.Type = "OKTA_SIGN_ON"
-	}
-
-	policies, resp, err := client.PolicyAPI.ListPolicies(ctx, input)
+	policies, resp, err := client.PolicyAPI.ListPolicies(ctx).Type_("OKTA_SIGN_ON").Execute()
 	if err != nil {
 		logger.Error("listOktaSignonPolicies", "list_policies_error", err)
 		return nil, err
@@ -74,8 +69,8 @@ func listOktaSignonPolicies(ctx context.Context, d *plugin.QueryData, _ *plugin.
 
 	// paging
 	for resp.HasNextPage() {
-		var nextPolicySet []*okta.Policy
-		resp, err = resp.Next(ctx, &nextPolicySet)
+		var nextPolicySet []okta.ListPolicies200ResponseInner
+		resp, err = resp.Next(&nextPolicySet)
 		if err != nil {
 			logger.Error("listOktaSignonPolicies", "list_policies_paging_error", err)
 			return nil, err
@@ -106,9 +101,25 @@ func getOktaPolicyRules(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 	case *PolicyStructure:
 		policyId = item.Id
 	case *okta.Policy:
-		policyId = item.Id
+		policyId = *item.Id
 	case *okta.AuthorizationServerPolicy:
-		policyId = item.Id
+		policyId = *item.Id
+	case okta.ListPolicies200ResponseInner:
+		// Handle union type - extract actual policy
+		if actual := item.GetActualInstance(); actual != nil {
+			switch p := actual.(type) {
+			case *okta.AccessPolicy:
+				policyId = *p.Id
+			case *okta.IdpDiscoveryPolicy:
+				policyId = *p.Id
+			case *okta.MultifactorEnrollmentPolicy:
+				policyId = *p.Id
+			case *okta.OktaSignOnPolicy:
+				policyId = *p.Id
+			case *okta.PasswordPolicy:
+				policyId = *p.Id
+			}
+		}
 	}
 
 	// Empty check
@@ -122,7 +133,7 @@ func getOktaPolicyRules(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 		return nil, err
 	}
 
-	var rules []oktaV4.ListPolicyRules200ResponseInner
+	var rules []okta.ListPolicyRules200ResponseInner
 
 	policyRules, resp, err := client.PolicyAPI.ListPolicyRules(ctx, policyId).Execute()
 	if err != nil {
@@ -134,15 +145,13 @@ func getOktaPolicyRules(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 
 	// paging
 	for resp.HasNextPage() {
-		var nextPolicyRules []*oktaV4.ListPolicyRules200ResponseInner
+		var nextPolicyRules []okta.ListPolicyRules200ResponseInner
 		resp, err = resp.Next(&nextPolicyRules)
 		if err != nil {
 			logger.Error("getOktaPolicyRules", "list_policies_paging_error", err)
 			return nil, err
 		}
-		for _, r := range nextPolicyRules {
-			rules = append(rules, *r)
-		}
+		rules = append(rules, nextPolicyRules...)
 	}
 
 	var allRules []interface{}
