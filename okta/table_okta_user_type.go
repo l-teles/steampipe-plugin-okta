@@ -56,7 +56,7 @@ func listOktaUserTypes(ctx context.Context, d *plugin.QueryData, _ *plugin.Hydra
 		return nil, err
 	}
 
-	userTypes, resp, err := client.UserType.ListUserTypes(ctx)
+	userTypes, resp, err := client.UserTypeAPI.ListUserTypes(ctx).Execute()
 	if err != nil {
 		logger.Error("listOktaUserTypes", "list_user_types_error", err)
 		if strings.Contains(err.Error(), "Not found") {
@@ -76,8 +76,8 @@ func listOktaUserTypes(ctx context.Context, d *plugin.QueryData, _ *plugin.Hydra
 
 	// paging
 	for resp.HasNextPage() {
-		var nextUserTypeSet []*okta.UserType
-		resp, err = resp.Next(ctx, &nextUserTypeSet)
+		var nextUserTypeSet []okta.UserType
+		resp, err = resp.Next(&nextUserTypeSet)
 		if err != nil {
 			logger.Error("listOktaUserTypes", "list_user_types_paging_error", err)
 			return nil, err
@@ -113,7 +113,7 @@ func getOktaUserType(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrate
 		return nil, err
 	}
 
-	userType, _, err := client.UserType.GetUserType(ctx, userTypeId)
+	userType, _, err := client.UserTypeAPI.GetUserType(ctx, userTypeId).Execute()
 	if err != nil {
 		logger.Error("getOktaUserType", "get_user_type_error", err)
 		return nil, err

@@ -58,20 +58,18 @@ func listOktaTrustedOrigins(ctx context.Context, d *plugin.QueryData, _ *plugin.
 
 	// Maximum limit isn't mentioned in the documentation
 	// Default maximum limit is set as 200
-	input := query.Params{
-		Limit: 200,
-	}
+	maxLimit := int64(200)
 
 	// If the requested number of items is less than the paging max limit
 	// set the limit to that instead
 	limit := d.QueryContext.Limit
 	if d.QueryContext.Limit != nil {
-		if *limit < input.Limit {
-			input.Limit = *limit
+		if *limit < maxLimit {
+			maxLimit = *limit
 		}
 	}
 
-	origins, resp, err := client.TrustedOrigin.ListOrigins(ctx, &input)
+	origins, resp, err := client.TrustedOriginAPI.ListTrustedOrigins(ctx).Limit(int32(maxLimit)).Execute()
 	if err != nil {
 		logger.Error("listOktaTrustedOrigins", "list_origins_error", err)
 		return nil, err
@@ -88,8 +86,8 @@ func listOktaTrustedOrigins(ctx context.Context, d *plugin.QueryData, _ *plugin.
 
 	// paging
 	for resp.HasNextPage() {
-		var nextOriginSet []*okta.TrustedOrigin
-		resp, err = resp.Next(ctx, &nextOriginSet)
+		var nextOriginSet []okta.TrustedOrigin
+		resp, err = resp.Next(&nextOriginSet)
 		if err != nil {
 			logger.Error("listOktaTrustedOrigins", "list_origins_paging_error", err)
 			return nil, err
@@ -125,11 +123,11 @@ func getOktaTrustedOrigin(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 		return nil, err
 	}
 
-	app, _, err := client.TrustedOrigin.GetOrigin(ctx, trustedOriginId)
+	origin, _, err := client.TrustedOriginAPI.GetTrustedOrigin(ctx, trustedOriginId).Execute()
 	if err != nil {
 		logger.Error("getOktaTrustedOrigin", "get_origin_error", err)
 		return nil, err
 	}
 
-	return app, nil
+	return origin, nil
 }
