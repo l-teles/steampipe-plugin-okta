@@ -240,9 +240,9 @@ func listAssignedRolesForUser(ctx context.Context, d *plugin.QueryData, h *plugi
 		return nil, err
 	}
 
-	// If not full admin, return empty list
+	// If not full admin, return nil
 	if !isFullAdmin {
-		return []*okta.Role{}, nil
+		return nil, nil
 	}
 
 	user := h.Item.(*okta.User)
