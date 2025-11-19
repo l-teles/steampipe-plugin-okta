@@ -18,7 +18,7 @@ connection "okta" {
   # Private key value. Can also be set with the OKTA_CLIENT_PRIVATEKEY environment variable.
   # private_key = "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAK..."
 
-  # Whether the user has full admin privileges. When set to true, the assigned_roles column 
+  # Whether the token has full admin privileges. When set to true, the assigned_roles column 
   # in the okta_user table will be populated. When false, it returns empty.
   # Can also be set with the OKTA_IS_FULL_ADMIN environment variable.
   # Defaults to false.
