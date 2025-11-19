@@ -52,31 +52,35 @@ func listOktaSignonPolicies(ctx context.Context, d *plugin.QueryData, _ *plugin.
 		return nil, err
 	}
 
-	policies, resp, err := client.PolicyAPI.ListPolicies(ctx).Type_("OKTA_SIGN_ON").Execute()
+	policyResp, resp, err := client.PolicyAPI.ListPolicies(ctx).Type_("OKTA_SIGN_ON").Execute()
 	if err != nil {
 		logger.Error("listOktaSignonPolicies", "list_policies_error", err)
 		return nil, err
 	}
 
-	for _, policy := range policies {
-		d.StreamListItem(ctx, policy)
-
-		// Context can be cancelled due to manual cancellation or the limit has been hit
-		if d.RowsRemaining(ctx) == 0 {
-			return nil, nil
+	// In v6, ListPolicies returns a single policy union type, not an array
+	// Stream the first policy if it exists
+	if policyResp != nil {
+		if actual := policyResp.GetActualInstance(); actual != nil {
+			d.StreamListItem(ctx, *policyResp)
+			
+			// Context can be cancelled due to manual cancellation or the limit has been hit
+			if d.RowsRemaining(ctx) == 0 {
+				return nil, nil
+			}
 		}
 	}
 
-	// paging
+	// paging - try to get more policies through pagination
 	for resp.HasNextPage() {
-		var nextPolicySet []okta.ListPolicies200ResponseInner
-		resp, err = resp.Next(&nextPolicySet)
+		var nextPolicy okta.ListPolicies200Response
+		resp, err = resp.Next(&nextPolicy)
 		if err != nil {
 			logger.Error("listOktaSignonPolicies", "list_policies_paging_error", err)
 			return nil, err
 		}
-		for _, policy := range nextPolicySet {
-			d.StreamListItem(ctx, policy)
+		if actual := nextPolicy.GetActualInstance(); actual != nil {
+			d.StreamListItem(ctx, nextPolicy)
 
 			// Context can be cancelled due to manual cancellation or the limit has been hit
 			if d.RowsRemaining(ctx) == 0 {
@@ -104,7 +108,7 @@ func getOktaPolicyRules(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 		policyId = *item.Id
 	case *okta.AuthorizationServerPolicy:
 		policyId = *item.Id
-	case okta.ListPolicies200ResponseInner:
+	case okta.ListPolicies200Response:
 		// Handle union type - extract actual policy
 		if actual := item.GetActualInstance(); actual != nil {
 			switch p := actual.(type) {
@@ -112,7 +116,7 @@ func getOktaPolicyRules(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 				policyId = *p.Id
 			case *okta.IdpDiscoveryPolicy:
 				policyId = *p.Id
-			case *okta.MultifactorEnrollmentPolicy:
+			case *okta.AuthenticatorEnrollmentPolicy:
 				policyId = *p.Id
 			case *okta.OktaSignOnPolicy:
 				policyId = *p.Id
@@ -180,9 +184,9 @@ func getOktaPolicyAssociatedResources(ctx context.Context, d *plugin.QueryData, 
 	case *PolicyStructure:
 		policyId = item.Id
 	case *okta.Policy:
-		policyId = item.Id
+		policyId = *item.Id
 	case *okta.AuthorizationServerPolicy:
-		policyId = item.Id
+		policyId = *item.Id
 	}
 
 	// Empty check
@@ -196,7 +200,7 @@ func getOktaPolicyAssociatedResources(ctx context.Context, d *plugin.QueryData, 
 		return nil, err
 	}
 
-	var mappings []oktaV4.PolicyMapping
+	var mappings []okta.PolicyMapping
 
 	policyMappings, resp, err := client.PolicyAPI.ListPolicyMappings(ctx, policyId).Execute()
 	if err != nil {
@@ -211,7 +215,7 @@ func getOktaPolicyAssociatedResources(ctx context.Context, d *plugin.QueryData, 
 
 	// paging
 	for resp.HasNextPage() {
-		var nextPolicyMappings []*oktaV4.PolicyMapping
+		var nextPolicyMappings []okta.PolicyMapping
 		resp, err = resp.Next(&nextPolicyMappings)
 		if err != nil {
 			logger.Error("getOktaPolicyAssociatedResources", "list_policies_paging_error", err)
@@ -219,7 +223,7 @@ func getOktaPolicyAssociatedResources(ctx context.Context, d *plugin.QueryData, 
 		}
 
 		for _, mapping := range nextPolicyMappings {
-			mappings = append(mappings, *mapping)
+			mappings = append(mappings, mapping)
 		}
 	}
 

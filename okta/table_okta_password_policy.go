@@ -52,44 +52,50 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateDat
 	logger := plugin.Logger(ctx)
 	client, err := Connect(ctx, d)
 
-	input := &query.Params{}
 	if err != nil {
 		logger.Error("listOktaPolicies", "connect_error", err)
 		return nil, err
 	}
 
+	var policyType string
 	switch d.Table.Name {
 	case "okta_password_policy":
-		input.Type = "PASSWORD"
+		policyType = "PASSWORD"
 	case "okta_mfa_policy":
-		input.Type = "MFA_ENROLL"
+		policyType = "MFA_ENROLL"
 	}
 
-	policies, resp, err := listPoliciesWithSettings(ctx, *client, input)
+	policyResp, resp, err := client.PolicyAPI.ListPolicies(ctx).Type_(policyType).Execute()
 	if err != nil {
-		logger.Error("listPolicies", "list_policies_with_settings_error", err)
+		logger.Error("listPolicies", "list_policies_error", err)
 		return nil, err
 	}
 
-	for _, policy := range policies {
-		d.StreamListItem(ctx, policy)
-
-		// Context can be cancelled due to manual cancellation or the limit has been hit
-		if d.RowsRemaining(ctx) == 0 {
-			return nil, nil
+	// In v6, ListPolicies returns a single policy union type, not an array
+	// Convert it to PolicyStructure for compatibility
+	if policyResp != nil {
+		policyStruct := convertPolicyRespToStruct(policyResp)
+		if policyStruct != nil {
+			d.StreamListItem(ctx, policyStruct)
+			
+			// Context can be cancelled due to manual cancellation or the limit has been hit
+			if d.RowsRemaining(ctx) == 0 {
+				return nil, nil
+			}
 		}
 	}
 
-	// paging
+	// paging - try to get more policies through pagination
 	for resp.HasNextPage() {
-		var nextPolicySet []*okta.Policy
-		resp, err = resp.Next(ctx, &nextPolicySet)
+		var nextPolicy okta.ListPolicies200Response
+		resp, err = resp.Next(&nextPolicy)
 		if err != nil {
-			logger.Error("listPolicies", "list_policies_with_settings_paging_error", err)
+			logger.Error("listPolicies", "list_policies_paging_error", err)
 			return nil, err
 		}
-		for _, policy := range nextPolicySet {
-			d.StreamListItem(ctx, policy)
+		policyStruct := convertPolicyRespToStruct(&nextPolicy)
+		if policyStruct != nil {
+			d.StreamListItem(ctx, policyStruct)
 
 			// Context can be cancelled due to manual cancellation or the limit has been hit
 			if d.RowsRemaining(ctx) == 0 {
@@ -101,30 +107,73 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateDat
 	return nil, err
 }
 
-// Generic policy returned by
-func listPoliciesWithSettings(ctx context.Context, client okta.Client, qp *query.Params) ([]*PolicyStructure, *okta.Response, error) {
-	url := "/api/v1/policies"
-	if qp != nil {
-		url = url + qp.String()
+// Convert v6 ListPolicies200Response union type to PolicyStructure
+func convertPolicyRespToStruct(policyResp *okta.ListPolicies200Response) *PolicyStructure {
+	if policyResp == nil {
+		return nil
+	}
+	
+	actual := policyResp.GetActualInstance()
+	if actual == nil {
+		return nil
 	}
 
-	requestExecutor := client.GetRequestExecutor()
-	req, err := requestExecutor.WithAccept("application/json").WithContentType("application/json").NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, nil, err
+	switch p := actual.(type) {
+	case *okta.PasswordPolicy:
+		return &PolicyStructure{
+			Id:          getStringPtrVal(p.Id),
+			Name:        p.Name,
+			Description: getStringPtrVal(p.Description),
+			Status:      getStringPtrVal(p.Status),
+			Priority:    getInt32PtrVal(p.Priority),
+			System:      getBoolPtrVal(p.System),
+			Type:        p.Type,
+			Created:     p.Created,
+			LastUpdated: p.LastUpdated,
+			Settings:    p.Settings,
+			Conditions:  nil, // PasswordPolicyConditions can't be cast to PolicyRuleConditions
+		}
+	case *okta.AuthenticatorEnrollmentPolicy:
+		return &PolicyStructure{
+			Id:          getStringPtrVal(p.Id),
+			Name:        p.Name,
+			Description: getStringPtrVal(p.Description),
+			Status:      getStringPtrVal(p.Status),
+			Priority:    getInt32PtrVal(p.Priority),
+			System:      getBoolPtrVal(p.System),
+			Type:        p.Type,
+			Created:     p.Created,
+			LastUpdated: p.LastUpdated,
+			Settings:    p.Settings,
+			Conditions:  nil, // Different condition types
+		}
 	}
-
-	var policies []*PolicyStructure
-
-	resp, err := requestExecutor.Do(ctx, req, &policies)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return policies, resp, nil
+	return nil
 }
 
-// generic policy missing Settings field
+// Helper functions for pointer dereference
+func getStringPtrVal(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
+}
+
+func getInt32PtrVal(i *int32) int32 {
+	if i != nil {
+		return *i
+	}
+	return 0
+}
+
+func getBoolPtrVal(b *bool) bool {
+	if b != nil {
+		return *b
+	}
+	return false
+}
+
+// generic policy missing Settings field (kept for compatibility with existing code)
 type PolicyStructure struct {
 	Embedded    interface{}                `json:"_embedded,omitempty"`
 	Links       interface{}                `json:"_links,omitempty"`
@@ -135,8 +184,8 @@ type PolicyStructure struct {
 	Id          string                     `json:"id,omitempty"`
 	LastUpdated *time.Time                 `json:"lastUpdated,omitempty"`
 	Name        string                     `json:"name,omitempty"`
-	Priority    int64                      `json:"priority,omitempty"`
+	Priority    int32                      `json:"priority,omitempty"`
 	Status      string                     `json:"status,omitempty"`
-	System      *bool                      `json:"system,omitempty"`
+	System      bool                       `json:"system,omitempty"`
 	Type        string                     `json:"type,omitempty"`
 }

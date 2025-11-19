@@ -191,7 +191,7 @@ func listGroupMembers(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 
 	var groupId string
 	if h.Item != nil {
-		groupId = h.Item.(*okta.Group).Id
+		groupId = *h.Item.(*okta.Group).Id
 	} else {
 		groupId = d.EqualsQuals["id"].GetStringValue()
 	}
@@ -202,7 +202,7 @@ func listGroupMembers(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		return nil, err
 	}
 
-	groupMembers, resp, err := client.GroupAPI.ListGroupUsers(ctx, groupId, &query.Params{})
+	groupMembers, resp, err := client.GroupAPI.ListGroupUsers(ctx, groupId).Execute()
 	if err != nil {
 		logger.Error("listGroupMembers", "list_group_users_error", err)
 		return nil, err
@@ -210,8 +210,8 @@ func listGroupMembers(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 
 	// paging
 	for resp.HasNextPage() {
-		var nextgroupMembersSet []*okta.User
-		resp, err = resp.Next(ctx, &groupMembers)
+		var nextgroupMembersSet []okta.User
+		resp, err = resp.Next(&nextgroupMembersSet)
 		if err != nil {
 			logger.Error("listOktaGroups", "list_group_users_paging_error", err)
 			return nil, err
@@ -225,15 +225,14 @@ func listGroupMembers(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 //// TRANSFORM FUNCTION
 
 func transformGroupMembers(ctx context.Context, d *transform.TransformData) (interface{}, error) {
-	users := d.HydrateItem.([]*okta.User)
+	users := d.HydrateItem.([]okta.User)
 	var usersData = []map[string]string{}
 
 	for _, user := range users {
-		userProfile := *user.Profile
 		usersData = append(usersData, map[string]string{
-			"id":    user.Id,
-			"email": userProfile["email"].(string),
-			"login": userProfile["login"].(string),
+			"id":    *user.Id,
+			"email": user.Profile.GetEmail(),
+			"login": user.Profile.GetLogin(),
 		})
 	}
 

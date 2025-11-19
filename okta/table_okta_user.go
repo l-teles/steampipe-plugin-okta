@@ -208,7 +208,7 @@ func listUserGroups(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		return nil, err
 	}
 
-	groups, resp, err := client.UserAPI.ListUserGroups(ctx, *user.Id).Execute()
+	groups, resp, err := client.UserResourcesAPI.ListUserGroups(ctx, *user.Id).Execute()
 	if err != nil {
 		logger.Error("listUserGroups", "list_user_groups_error", err)
 		if strings.Contains(err.Error(), "Not found") {
@@ -240,14 +240,14 @@ func listAssignedRolesForUser(ctx context.Context, d *plugin.QueryData, h *plugi
 		return nil, err
 	}
 
-	roles, resp, err := client.RoleAssignmentAPI.ListAssignedRolesForUser(ctx, *user.Id).Execute()
+	roles, resp, err := client.RoleAssignmentAUserAPI.ListAssignedRolesForUser(ctx, *user.Id).Execute()
 	if err != nil {
 		logger.Error("listAssignedRolesForUser", "list_assigned_roles_for_user_error", err)
 		return nil, err
 	}
 
 	for resp.HasNextPage() {
-		var nextRolesSet []okta.Role
+		var nextRolesSet []okta.ListGroupAssignedRoles200ResponseInner
 		resp, err = resp.Next(&nextRolesSet)
 		if err != nil {
 			logger.Error("listAssignedRolesForUser", "list_assigned_roles_for_user_paging_error", err)
@@ -298,9 +298,19 @@ func transformUserGroups(ctx context.Context, d *transform.TransformData) (inter
 	var groupsData = []map[string]string{}
 
 	for _, group := range groups {
+		groupName := ""
+		// GroupProfile is a union type, need to extract name
+		if group.Profile != nil {
+			if group.Profile.OktaUserGroupProfile != nil {
+				groupName = group.Profile.OktaUserGroupProfile.GetName()
+			} else if group.Profile.OktaActiveDirectoryGroupProfile != nil {
+				groupName = group.Profile.OktaActiveDirectoryGroupProfile.GetName()
+			}
+		}
+		
 		groupsData = append(groupsData, map[string]string{
 			"id":   *group.Id,
-			"name": *group.Profile.Name,
+			"name": groupName,
 			"type": *group.Type,
 		})
 	}
