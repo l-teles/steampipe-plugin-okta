@@ -1,14 +1,12 @@
 module github.com/turbot/steampipe-plugin-okta
 
-go 1.24
+go 1.24.0
 
-toolchain go1.24.1
+toolchain go1.24.10
 
 require (
 	github.com/ettle/strcase v0.1.1
-	github.com/okta/okta-sdk-golang/v2 v2.5.0
-	github.com/okta/okta-sdk-golang/v4 v4.0.0
-	github.com/okta/okta-sdk-golang/v5 v5.0.4
+	github.com/okta/okta-sdk-golang/v6 v6.0.0
 	github.com/turbot/go-kit v1.1.0
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.13.1
 )
@@ -18,7 +16,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.6 // indirect
 	cloud.google.com/go/storage v1.38.0 // indirect
-	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/allegro/bigcache/v3 v3.1.0 // indirect
@@ -41,7 +38,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
@@ -122,7 +119,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/grpc v1.66.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -3,8 +3,7 @@ package okta
 import (
 	"context"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
@@ -53,21 +52,19 @@ func listOktaGroupRules(ctx context.Context, d *plugin.QueryData, _ *plugin.Hydr
 
 	// Default maximum limit set as per documentation
 	// https://developer.okta.com/docs/reference/api/groups/#list-group-rules
-	input := query.Params{
-		Limit: 200,
-	}
+	maxLimit := int64(200)
 
 	// If the requested number of items is less than the paging max limit
 	// set the limit to that instead
 	limit := d.QueryContext.Limit
 	if d.QueryContext.Limit != nil {
-		if *limit < input.Limit {
-			input.Limit = *limit
+		if *limit < maxLimit {
+			maxLimit = *limit
 		}
 	}
 
 	// Fetch group rules
-	groupRules, resp, err := client.Group.ListGroupRules(ctx, &input)
+	groupRules, resp, err := client.GroupRuleAPI.ListGroupRules(ctx).Limit(int32(maxLimit)).Execute()
 	if err != nil {
 		logger.Error("okta_group_rule.listOktaGroupRules", "api_error", err)
 		return nil, err
@@ -84,8 +81,8 @@ func listOktaGroupRules(ctx context.Context, d *plugin.QueryData, _ *plugin.Hydr
 
 	// paging
 	for resp.HasNextPage() {
-		var nextGroupRuleSet []*okta.GroupRule
-		resp, err = resp.Next(ctx, &nextGroupRuleSet)
+		var nextGroupRuleSet []okta.GroupRule
+		resp, err = resp.Next(&nextGroupRuleSet)
 		if err != nil {
 			logger.Error("okta_group_rule.listOktaGroupRules", "api_paging_error", err)
 			return nil, err
@@ -111,7 +108,7 @@ func getOktaGroupRule(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 	// Retrieve the rule ID from the query or hydrate data
 	var ruleId string
 	if h.Item != nil {
-		ruleId = h.Item.(*okta.GroupRule).Id
+		ruleId = *h.Item.(*okta.GroupRule).Id
 	} else {
 		ruleId = d.EqualsQuals["id"].GetStringValue()
 	}
@@ -127,7 +124,7 @@ func getOktaGroupRule(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 	}
 
 	// Fetch the group rule by ID
-	groupRule, _, err := client.Group.GetGroupRule(ctx, ruleId, nil)
+	groupRule, _, err := client.GroupRuleAPI.GetGroupRule(ctx, ruleId).Execute()
 	if err != nil {
 		logger.Error("okta_group_rule.getOktaGroupRule", "api_error", err)
 		return nil, err

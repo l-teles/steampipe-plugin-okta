@@ -6,129 +6,15 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	oktaV4 "github.com/okta/okta-sdk-golang/v4/okta"
-	oktaV5 "github.com/okta/okta-sdk-golang/v5/okta"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 )
 
-func Connect(ctx context.Context, d *plugin.QueryData) (*okta.Client, error) {
+func Connect(ctx context.Context, d *plugin.QueryData) (*okta.APIClient, error) {
 	// have we already created and cached the session?
 	sessionCacheKey := "OktaSession"
 	if cachedData, ok := d.ConnectionManager.Cache.Get(sessionCacheKey); ok {
-		return cachedData.(*okta.Client), nil
-	}
-
-	// Get environment or steampipe config value
-	domain, token, clientID, privateKey, requestTimeout, maxBackoff, maxRetries, err := getOktaConfigValues(d)
-	if err != nil {
-		return nil, fmt.Errorf("error in retrieving config or environment values: %v", err)
-	}
-
-	scopes := []string{"okta.users.read", "okta.groups.read", "okta.roles.read", "okta.apps.read", "okta.policies.read", "okta.authorizationServers.read", "okta.trustedOrigins.read", "okta.factors.read"}
-
-	if domain != "" && token != "" {
-		_, client, err := okta.NewClient(ctx, okta.WithOrgUrl(domain), okta.WithToken(token), okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff))
-		if err != nil {
-			return nil, err
-		}
-		d.ConnectionManager.Cache.Set(sessionCacheKey, client)
-		client.GetConfig()
-		return client, err
-	}
-
-	if domain != "" && clientID != "" && privateKey != "" {
-		_, client, err := okta.NewClient(ctx, okta.WithOrgUrl(domain), okta.WithAuthorizationMode("PrivateKey"), okta.WithClientId(clientID), okta.WithPrivateKey(privateKey), okta.WithScopes(scopes), okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff))
-		if err != nil {
-			return nil, err
-		}
-		d.ConnectionManager.Cache.Set(sessionCacheKey, client)
-		return client, err
-	}
-
-	/* *
-	*	Try with okta sdk default options
-	*
-	*	https://github.com/okta/okta-sdk-golang#configuration-reference
-	*	1. An okta.yaml file in a .okta folder in the current user's home directory (~/.okta/okta.yaml or %userprofile\.okta\okta.yaml)
-	* 2. An .okta.yaml file in the application or project's root directory
-	* 3. Environment variables
-	* 4. Configuration explicitly passed to the constructor (see the example in Getting started)
-	*	*/
-	_, client, err := okta.NewClient(ctx, okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff))
-	if err != nil {
-		return nil, err
-	}
-
-	// Save session into cache
-	d.ConnectionManager.Cache.Set(sessionCacheKey, client)
-
-	return client, err
-}
-
-func ConnectV4(ctx context.Context, d *plugin.QueryData) (*oktaV4.APIClient, error) {
-	// have we already created and cached the session?
-	sessionCacheKey := "OktaSessionV4"
-	if cachedData, ok := d.ConnectionManager.Cache.Get(sessionCacheKey); ok {
-		return cachedData.(*oktaV4.APIClient), nil
-	}
-
-	// Get environment or steampipe config value
-	domain, token, clientID, privateKey, requestTimeout, maxBackoff, maxRetries, err := getOktaConfigValues(d)
-	if err != nil {
-		return nil, fmt.Errorf("error in retrieving config or environment values: %v", err)
-	}
-	scopes := []string{"okta.users.read", "okta.groups.read", "okta.roles.read", "okta.apps.read", "okta.policies.read", "okta.authorizationServers.read", "okta.trustedOrigins.read", "okta.factors.read", "okta.devices.read"}
-
-	if domain != "" && token != "" {
-		oktaConfiguratiopn, err := oktaV4.NewConfiguration(oktaV4.WithOrgUrl(domain), oktaV4.WithToken(token), oktaV4.WithRequestTimeout(requestTimeout), oktaV4.WithRateLimitMaxRetries(maxRetries), oktaV4.WithRateLimitMaxBackOff(maxBackoff))
-		if err != nil {
-			return nil, err
-		}
-		client := oktaV4.NewAPIClient(oktaConfiguratiopn)
-
-		d.ConnectionManager.Cache.Set(sessionCacheKey, client)
-		return client, err
-	}
-
-	if domain != "" && clientID != "" && privateKey != "" {
-		oktaConfiguratiopn, err := oktaV4.NewConfiguration(oktaV4.WithOrgUrl(domain), oktaV4.WithAuthorizationMode("PrivateKey"), oktaV4.WithClientId(clientID), oktaV4.WithPrivateKey(privateKey), oktaV4.WithScopes(scopes), oktaV4.WithRequestTimeout(requestTimeout), oktaV4.WithRateLimitMaxRetries(maxRetries), oktaV4.WithRateLimitMaxBackOff(maxBackoff))
-		if err != nil {
-			return nil, err
-		}
-
-		client := oktaV4.NewAPIClient(oktaConfiguratiopn)
-
-		d.ConnectionManager.Cache.Set(sessionCacheKey, client)
-		return client, err
-	}
-
-	/* *
-	*	Try with okta sdk default options
-	*
-	*	https://github.com/okta/okta-sdk-golang#configuration-reference
-	*	1. An okta.yaml file in a .okta folder in the current user's home directory (~/.okta/okta.yaml or %userprofile\.okta\okta.yaml)
-	* 2. An .okta.yaml file in the application or project's root directory
-	* 3. Environment variables
-	* 4. Configuration explicitly passed to the constructor (see the example in Getting started)
-	*	*/
-	oktaConfiguratiopn, err := oktaV4.NewConfiguration(oktaV4.WithRequestTimeout(requestTimeout), oktaV4.WithRateLimitMaxRetries(maxRetries), oktaV4.WithRateLimitMaxBackOff(maxBackoff))
-	if err != nil {
-		return nil, err
-	}
-	client := oktaV4.NewAPIClient(oktaConfiguratiopn)
-
-	// Save session into cache
-	d.ConnectionManager.Cache.Set(sessionCacheKey, client)
-
-	return client, err
-}
-
-func ConnectV5(ctx context.Context, d *plugin.QueryData) (*oktaV5.APIClient, error) {
-	// have we already created and cached the session?
-	sessionCacheKey := "OktaSessionV5"
-	if cachedData, ok := d.ConnectionManager.Cache.Get(sessionCacheKey); ok {
-		return cachedData.(*oktaV5.APIClient), nil
+		return cachedData.(*okta.APIClient), nil
 	}
 
 	// Get environment or steampipe config value
@@ -139,48 +25,39 @@ func ConnectV5(ctx context.Context, d *plugin.QueryData) (*oktaV5.APIClient, err
 
 	scopes := []string{"okta.users.read", "okta.groups.read", "okta.roles.read", "okta.apps.read", "okta.policies.read", "okta.authorizationServers.read", "okta.trustedOrigins.read", "okta.factors.read", "okta.devices.read"}
 
+	var config *okta.Configuration
 	if domain != "" && token != "" {
-		oktaConfiguratiopn, err := oktaV5.NewConfiguration(oktaV5.WithOrgUrl(domain), oktaV5.WithToken(token), oktaV5.WithRequestTimeout(requestTimeout), oktaV5.WithRateLimitMaxRetries(maxRetries), oktaV5.WithRateLimitMaxBackOff(maxBackoff))
+		config, err = okta.NewConfiguration(okta.WithOrgUrl(domain), okta.WithToken(token), okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff))
 		if err != nil {
 			return nil, err
 		}
-		client := oktaV5.NewAPIClient(oktaConfiguratiopn)
-
-		d.ConnectionManager.Cache.Set(sessionCacheKey, client)
-		return client, err
-	}
-
-	if domain != "" && clientID != "" && privateKey != "" {
-		oktaConfiguratiopn, err := oktaV5.NewConfiguration(oktaV5.WithOrgUrl(domain), oktaV5.WithAuthorizationMode("PrivateKey"), oktaV5.WithClientId(clientID), oktaV5.WithPrivateKey(privateKey), oktaV5.WithScopes(scopes), oktaV5.WithRequestTimeout(requestTimeout), oktaV5.WithRateLimitMaxRetries(maxRetries), oktaV5.WithRateLimitMaxBackOff(maxBackoff))
+	} else if domain != "" && clientID != "" && privateKey != "" {
+		config, err = okta.NewConfiguration(okta.WithOrgUrl(domain), okta.WithAuthorizationMode("PrivateKey"), okta.WithClientId(clientID), okta.WithPrivateKey(privateKey), okta.WithScopes(scopes), okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff))
 		if err != nil {
 			return nil, err
 		}
-
-		client := oktaV5.NewAPIClient(oktaConfiguratiopn)
-
-		d.ConnectionManager.Cache.Set(sessionCacheKey, client)
-		return client, err
+	} else {
+		/* *
+		*	Try with okta sdk default options
+		*
+		*	https://github.com/okta/okta-sdk-golang#configuration-reference
+		*	1. An okta.yaml file in a .okta folder in the current user's home directory (~/.okta/okta.yaml or %userprofile\.okta\okta.yaml)
+		* 2. An .okta.yaml file in the application or project's root directory
+		* 3. Environment variables
+		* 4. Configuration explicitly passed to the constructor (see the example in Getting started)
+		*	*/
+		config, err = okta.NewConfiguration(okta.WithRequestTimeout(requestTimeout), okta.WithRateLimitMaxRetries(maxRetries), okta.WithRateLimitMaxBackOff(maxBackoff))
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	/* *
-	*	Try with okta sdk default options
-	*
-	*	https://github.com/okta/okta-sdk-golang#configuration-reference
-	*	1. An okta.yaml file in a .okta folder in the current user's home directory (~/.okta/okta.yaml or %userprofile\.okta\okta.yaml)
-	* 2. An .okta.yaml file in the application or project's root directory
-	* 3. Environment variables
-	* 4. Configuration explicitly passed to the constructor (see the example in Getting started)
-	*	*/
-	oktaConfiguratiopn, err := oktaV5.NewConfiguration(oktaV5.WithRequestTimeout(requestTimeout), oktaV5.WithRateLimitMaxRetries(maxRetries), oktaV5.WithRateLimitMaxBackOff(maxBackoff))
-	if err != nil {
-		return nil, err
-	}
-	client := oktaV5.NewAPIClient(oktaConfiguratiopn)
+	client := okta.NewAPIClient(config)
 
 	// Save session into cache
 	d.ConnectionManager.Cache.Set(sessionCacheKey, client)
 
-	return client, err
+	return client, nil
 }
 
 // Retrieves an int64 value from an environment variable, with proper error handling

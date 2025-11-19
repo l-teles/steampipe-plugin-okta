@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	"github.com/ettle/strcase"
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -91,16 +90,14 @@ func listOktaUsers(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateDa
 
 	// Default maximum limit set as per documentation
 	// https://developer.okta.com/docs/reference/api/users/#request-parameters-3
-	input := query.Params{
-		Limit: 200,
-	}
+	maxLimit := int64(200)
 
 	// If the requested number of items is less than the paging max limit
 	// set the limit to that instead
 	limit := d.QueryContext.Limit
 	if d.QueryContext.Limit != nil {
-		if *limit < input.Limit {
-			input.Limit = *limit
+		if *limit < maxLimit {
+			maxLimit = *limit
 		}
 	}
 
@@ -123,13 +120,18 @@ func listOktaUsers(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateDa
 		queryFilter = equalQuals["filter"].GetStringValue()
 	}
 
+	var filterStr string
 	if queryFilter != "" {
-		input.Filter = queryFilter
+		filterStr = queryFilter
 	} else if len(filter) > 0 {
-		input.Filter = strings.Join(filter, " and ")
+		filterStr = strings.Join(filter, " and ")
 	}
 
-	users, resp, err := client.User.ListUsers(ctx, &input)
+	req := client.UserAPI.ListUsers(ctx).Limit(int32(maxLimit))
+	if filterStr != "" {
+		req = req.Filter(filterStr)
+	}
+	users, resp, err := req.Execute()
 	if err != nil {
 		logger.Error("listOktaUsers", "list_users_error", err)
 		return nil, err
@@ -146,8 +148,8 @@ func listOktaUsers(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateDa
 
 	// paging
 	for resp.HasNextPage() {
-		var nextUserSet []*okta.User
-		resp, err = resp.Next(ctx, &nextUserSet)
+		var nextUserSet []okta.User
+		resp, err = resp.Next(&nextUserSet)
 		if err != nil {
 			logger.Error("listOktaUsers", "list_users_paging_error", err)
 			return nil, err
@@ -172,7 +174,7 @@ func getOktaUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 	logger.Trace("getOktaUser")
 	var userId string
 	if h.Item != nil {
-		userId = h.Item.(*okta.User).Id
+		userId = *h.Item.(*okta.User).Id
 	} else {
 		userId = d.EqualsQuals["id"].GetStringValue()
 	}
@@ -187,7 +189,7 @@ func getOktaUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 		return nil, err
 	}
 
-	user, _, err := client.User.GetUser(ctx, userId)
+	user, _, err := client.UserAPI.GetUser(ctx, userId).Execute()
 	if err != nil {
 		logger.Error("getOktaUser", "get_user_error", err)
 		return nil, err
@@ -206,7 +208,7 @@ func listUserGroups(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		return nil, err
 	}
 
-	groups, resp, err := client.User.ListUserGroups(ctx, user.Id)
+	groups, resp, err := client.UserResourcesAPI.ListUserGroups(ctx, *user.Id).Execute()
 	if err != nil {
 		logger.Error("listUserGroups", "list_user_groups_error", err)
 		if strings.Contains(err.Error(), "Not found") {
@@ -216,8 +218,8 @@ func listUserGroups(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 	}
 
 	for resp.HasNextPage() {
-		var nextGroupSet []*okta.Group
-		resp, err = resp.Next(ctx, &nextGroupSet)
+		var nextGroupSet []okta.Group
+		resp, err = resp.Next(&nextGroupSet)
 		if err != nil {
 			logger.Error("listUserGroups", "list_user_groups_paging_error", err)
 			return nil, err
@@ -238,15 +240,15 @@ func listAssignedRolesForUser(ctx context.Context, d *plugin.QueryData, h *plugi
 		return nil, err
 	}
 
-	roles, resp, err := client.User.ListAssignedRolesForUser(ctx, user.Id, &query.Params{})
+	roles, resp, err := client.RoleAssignmentAUserAPI.ListAssignedRolesForUser(ctx, *user.Id).Execute()
 	if err != nil {
 		logger.Error("listAssignedRolesForUser", "list_assigned_roles_for_user_error", err)
 		return nil, err
 	}
 
 	for resp.HasNextPage() {
-		var nextRolesSet []*okta.Role
-		resp, err = resp.Next(ctx, &nextRolesSet)
+		var nextRolesSet []okta.ListGroupAssignedRoles200ResponseInner
+		resp, err = resp.Next(&nextRolesSet)
 		if err != nil {
 			logger.Error("listAssignedRolesForUser", "list_assigned_roles_for_user_paging_error", err)
 			return nil, err
@@ -264,24 +266,52 @@ func userProfile(ctx context.Context, d *transform.TransformData) (interface{}, 
 	if user.Profile == nil {
 		return nil, nil
 	}
-	userProfile := *user.Profile
+	userProfile := user.Profile
 
 	columnName := d.ColumnName
 	if columnName == "title" {
 		columnName = "login"
 	}
-	return userProfile[strcase.ToCamel(columnName)], nil
+
+	// Try to get from standard fields first
+	switch strcase.ToCamel(columnName) {
+	case "Login":
+		return userProfile.GetLogin(), nil
+	case "Email":
+		return userProfile.GetEmail(), nil
+	case "FirstName":
+		return userProfile.GetFirstName(), nil
+	case "LastName":
+		return userProfile.GetLastName(), nil
+	}
+
+	// Fall back to AdditionalProperties for custom fields
+	if val, ok := userProfile.AdditionalProperties[strcase.ToCamel(columnName)]; ok {
+		return val, nil
+	}
+
+	return nil, nil
 }
 
 func transformUserGroups(ctx context.Context, d *transform.TransformData) (interface{}, error) {
-	groups := d.HydrateItem.([]*okta.Group)
+	groups := d.HydrateItem.([]okta.Group)
 	var groupsData = []map[string]string{}
 
 	for _, group := range groups {
+		groupName := ""
+		// GroupProfile is a union type, need to extract name
+		if group.Profile != nil {
+			if group.Profile.OktaUserGroupProfile != nil {
+				groupName = group.Profile.OktaUserGroupProfile.GetName()
+			} else if group.Profile.OktaActiveDirectoryGroupProfile != nil {
+				groupName = group.Profile.OktaActiveDirectoryGroupProfile.GetName()
+			}
+		}
+		
 		groupsData = append(groupsData, map[string]string{
-			"id":   group.Id,
-			"name": group.Profile.Name,
-			"type": group.Type,
+			"id":   *group.Id,
+			"name": groupName,
+			"type": *group.Type,
 		})
 	}
 

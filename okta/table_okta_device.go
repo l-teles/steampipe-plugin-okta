@@ -3,7 +3,7 @@ package okta
 import (
 	"context"
 
-	"github.com/okta/okta-sdk-golang/v4/okta"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -102,7 +102,7 @@ func tableOktaDevice() *plugin.Table {
 
 func listOktaDevices(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateData) (interface{}, error) {
 	logger := plugin.Logger(ctx)
-	client, err := ConnectV4(ctx, d)
+	client, err := Connect(ctx, d)
 	if err != nil {
 		logger.Error("okta_device.listOktaDevices", "connect_error", err)
 		return nil, err
@@ -175,7 +175,7 @@ func getOktaDevice(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDa
 		return nil, nil
 	}
 
-	client, err := ConnectV4(ctx, d)
+	client, err := Connect(ctx, d)
 	if err != nil {
 		logger.Error("okta_device.getOktaDevice", "connect_error", err)
 		return nil, err

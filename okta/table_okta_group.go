@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -77,16 +76,14 @@ func listOktaGroups(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateD
 
 	// Default maximum limit set as per documentation
 	// https://developer.okta.com/docs/reference/api/groups/#list-groups
-	input := query.Params{
-		Limit: 10000,
-	}
+	maxLimit := int64(10000)
 
 	// If the requested number of items is less than the paging max limit
 	// set the limit to that instead
 	limit := d.QueryContext.Limit
 	if d.QueryContext.Limit != nil {
-		if *limit < input.Limit {
-			input.Limit = *limit
+		if *limit < maxLimit {
+			maxLimit = *limit
 		}
 	}
 
@@ -109,13 +106,18 @@ func listOktaGroups(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateD
 		queryFilter = equalQuals["filter"].GetStringValue()
 	}
 
+	var filterStr string
 	if queryFilter != "" {
-		input.Filter = queryFilter
+		filterStr = queryFilter
 	} else if len(filter) > 0 {
-		input.Filter = strings.Join(filter, " and ")
+		filterStr = strings.Join(filter, " and ")
 	}
 
-	groups, resp, err := client.Group.ListGroups(ctx, &input)
+	req := client.GroupAPI.ListGroups(ctx).Limit(int32(maxLimit))
+	if filterStr != "" {
+		req = req.Filter(filterStr)
+	}
+	groups, resp, err := req.Execute()
 	if err != nil {
 		logger.Error("listOktaGroups", "list_groups_error", err)
 		return nil, err
@@ -132,8 +134,8 @@ func listOktaGroups(ctx context.Context, d *plugin.QueryData, _ *plugin.HydrateD
 
 	// paging
 	for resp.HasNextPage() {
-		var nextGroupSet []*okta.Group
-		resp, err = resp.Next(ctx, &nextGroupSet)
+		var nextGroupSet []okta.Group
+		resp, err = resp.Next(&nextGroupSet)
 		if err != nil {
 			logger.Error("listOktaGroups", "list_groups_paging_error", err)
 			return nil, err
@@ -159,7 +161,7 @@ func getOktaGroup(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 
 	var groupId string
 	if h.Item != nil {
-		groupId = h.Item.(*okta.Group).Id
+		groupId = *h.Item.(*okta.Group).Id
 	} else {
 		groupId = d.EqualsQuals["id"].GetStringValue()
 	}
@@ -174,7 +176,7 @@ func getOktaGroup(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		return nil, err
 	}
 
-	group, _, err := client.Group.GetGroup(ctx, groupId)
+	group, _, err := client.GroupAPI.GetGroup(ctx, groupId).Execute()
 	if err != nil {
 		logger.Error("getOktaGroup", "get_group_error", err)
 		return nil, err
@@ -189,7 +191,7 @@ func listGroupMembers(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 
 	var groupId string
 	if h.Item != nil {
-		groupId = h.Item.(*okta.Group).Id
+		groupId = *h.Item.(*okta.Group).Id
 	} else {
 		groupId = d.EqualsQuals["id"].GetStringValue()
 	}
@@ -200,7 +202,7 @@ func listGroupMembers(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		return nil, err
 	}
 
-	groupMembers, resp, err := client.Group.ListGroupUsers(ctx, groupId, &query.Params{})
+	groupMembers, resp, err := client.GroupAPI.ListGroupUsers(ctx, groupId).Execute()
 	if err != nil {
 		logger.Error("listGroupMembers", "list_group_users_error", err)
 		return nil, err
@@ -208,8 +210,8 @@ func listGroupMembers(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 
 	// paging
 	for resp.HasNextPage() {
-		var nextgroupMembersSet []*okta.User
-		resp, err = resp.Next(ctx, &groupMembers)
+		var nextgroupMembersSet []okta.User
+		resp, err = resp.Next(&nextgroupMembersSet)
 		if err != nil {
 			logger.Error("listOktaGroups", "list_group_users_paging_error", err)
 			return nil, err
@@ -223,15 +225,14 @@ func listGroupMembers(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 //// TRANSFORM FUNCTION
 
 func transformGroupMembers(ctx context.Context, d *transform.TransformData) (interface{}, error) {
-	users := d.HydrateItem.([]*okta.User)
+	users := d.HydrateItem.([]okta.User)
 	var usersData = []map[string]string{}
 
 	for _, user := range users {
-		userProfile := *user.Profile
 		usersData = append(usersData, map[string]string{
-			"id":    user.Id,
-			"email": userProfile["email"].(string),
-			"login": userProfile["login"].(string),
+			"id":    *user.Id,
+			"email": user.Profile.GetEmail(),
+			"login": user.Profile.GetLogin(),
 		})
 	}
 

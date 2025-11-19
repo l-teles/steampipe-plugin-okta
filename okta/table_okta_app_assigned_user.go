@@ -3,8 +3,7 @@ package okta
 import (
 	"context"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -73,7 +72,57 @@ type AppUserInfo struct {
 func listApplicationAssignedUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	logger := plugin.Logger(ctx)
 	logger.Trace("listApplicationAssignedUsers")
-	appId := h.Item.(*okta.Application).Id
+	
+	// Extract appId from union type
+	var appId string
+	switch item := h.Item.(type) {
+	case okta.ListApplications200ResponseInner:
+		if actual := item.GetActualInstance(); actual != nil {
+			// Try to get ID from different application types
+			switch app := actual.(type) {
+			case *okta.AutoLoginApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.BasicAuthApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.BookmarkApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.BrowserPluginApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.OpenIdConnectApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.SamlApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.Saml11Application:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.SecurePasswordStoreApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			case *okta.WsFederationApplication:
+				if app.Id != nil {
+					appId = *app.Id
+				}
+			}
+		}
+	}
+
+	if appId == "" {
+		return nil, nil
+	}
 
 	client, err := Connect(ctx, d)
 	if err != nil {
@@ -83,28 +132,31 @@ func listApplicationAssignedUsers(ctx context.Context, d *plugin.QueryData, h *p
 
 	// Default maximum limit set as per documentation
 	// https://developer.okta.com/docs/reference/api/apps/#list-users-assigned-to-application
-	input := &query.Params{
-		Limit: 500,
-	}
+	maxLimit := int64(500)
 
+	var q string
 	if d.EqualsQualString("user_name") != "" {
-		input.Q = d.EqualsQualString("user_name")
+		q = d.EqualsQualString("user_name")
 	} else if d.EqualsQualString("first_name") != "" {
-		input.Q = d.EqualsQualString("first_name")
+		q = d.EqualsQualString("first_name")
 	} else if d.EqualsQualString("email") != "" {
-		input.Q = d.EqualsQualString("email")
+		q = d.EqualsQualString("email")
 	}
 
 	// If the requested number of items is less than the paging max limit
 	// set the limit to that instead
 	limit := d.QueryContext.Limit
 	if d.QueryContext.Limit != nil {
-		if *limit < input.Limit {
-			input.Limit = *limit
+		if *limit < maxLimit {
+			maxLimit = *limit
 		}
 	}
 
-	users, resp, err := client.Application.ListApplicationUsers(ctx, appId, input)
+	req := client.ApplicationUsersAPI.ListApplicationUsers(ctx, appId).Limit(int32(maxLimit))
+	if q != "" {
+		req = req.Q(q)
+	}
+	users, resp, err := req.Execute()
 
 	if err != nil {
 		logger.Error("listApplicationAssignedUsers", "list_app_users_error", err)
@@ -112,7 +164,7 @@ func listApplicationAssignedUsers(ctx context.Context, d *plugin.QueryData, h *p
 	}
 
 	for _, user := range users {
-		d.StreamListItem(ctx, AppUserInfo{appId, *user})
+		d.StreamListItem(ctx, AppUserInfo{appId, user})
 
 		// Context can be cancelled due to manual cancellation or the limit has been hit
 		if d.RowsRemaining(ctx) == 0 {
@@ -122,14 +174,14 @@ func listApplicationAssignedUsers(ctx context.Context, d *plugin.QueryData, h *p
 
 	// paging
 	for resp.HasNextPage() {
-		var nextUserSet []*okta.AppUser
-		resp, err = resp.Next(ctx, &nextUserSet)
+		var nextUserSet []okta.AppUser
+		resp, err = resp.Next(&nextUserSet)
 		if err != nil {
 			logger.Error("listApplicationAssignedUsers", "list_app_users_paging_error", err)
 			return nil, err
 		}
 		for _, user := range nextUserSet {
-			d.StreamListItem(ctx, AppUserInfo{appId, *user})
+			d.StreamListItem(ctx, AppUserInfo{appId, user})
 
 			// Context can be cancelled due to manual cancellation or the limit has been hit
 			if d.RowsRemaining(ctx) == 0 {
@@ -159,7 +211,7 @@ func getApplicationAssignedUser(ctx context.Context, d *plugin.QueryData, h *plu
 		return nil, err
 	}
 
-	user, _, err := client.Application.GetApplicationUser(ctx, appId, userId, &query.Params{})
+	user, _, err := client.ApplicationUsersAPI.GetApplicationUser(ctx, appId, userId).Execute()
 	if err != nil {
 		logger.Error("getApplicationAssignedUser", "get_app_user_error", err)
 		return nil, err

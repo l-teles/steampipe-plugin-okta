@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	oktav4 "github.com/okta/okta-sdk-golang/v4/okta"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -61,7 +60,7 @@ func listOktaGroupOwners(ctx context.Context, d *plugin.QueryData, h *plugin.Hyd
 
 	var groupId string
 	if h.Item != nil {
-		groupId = h.Item.(*okta.Group).Id
+		groupId = *h.Item.(*okta.Group).Id
 	} else {
 		groupId = d.EqualsQuals["group_id"].GetStringValue()
 	}
@@ -71,13 +70,13 @@ func listOktaGroupOwners(ctx context.Context, d *plugin.QueryData, h *plugin.Hyd
 		return nil, nil
 	}
 
-	client, err := ConnectV4(ctx, d)
+	client, err := Connect(ctx, d)
 	if err != nil {
 		logger.Error("okta_group_owner.listGroupOwners", "connect_error", err)
 		return nil, err
 	}
 
-	groupOwnerReq := client.GroupAPI.ListGroupOwners(ctx, groupId)
+	groupOwnerReq := client.GroupOwnerAPI.ListGroupOwners(ctx, groupId)
 
 	owners, resp, err := groupOwnerReq.Execute()
 	if err != nil {
@@ -106,7 +105,7 @@ func listOktaGroupOwners(ctx context.Context, d *plugin.QueryData, h *plugin.Hyd
 
 	// paging
 	for resp.HasNextPage() {
-		var nextGroupOwners []oktav4.GroupOwner
+		var nextGroupOwners []okta.GroupOwner
 		resp, err = resp.Next(&nextGroupOwners)
 		if err != nil {
 			logger.Error("okta_group_owner.listGroupOwners", "api_paging_error", err)

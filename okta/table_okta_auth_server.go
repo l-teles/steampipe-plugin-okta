@@ -4,8 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v6/okta"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 
@@ -65,24 +64,27 @@ func listOktaAuthServers(ctx context.Context, d *plugin.QueryData, _ *plugin.Hyd
 
 	// Default maximum limit set as per documentation
 	// https://developer.okta.com/docs/reference/api/authorization-servers/#list-authorization-servers
-	input := query.Params{
-		Limit: 200,
-	}
+	maxLimit := int64(200)
+	var q string
 
 	if d.EqualsQualString("name") != "" {
-		input.Q = d.EqualsQualString("name")
+		q = d.EqualsQualString("name")
 	}
 
 	// If the requested number of items is less than the paging max limit
 	// set the limit to that instead
 	limit := d.QueryContext.Limit
 	if d.QueryContext.Limit != nil {
-		if *limit < input.Limit {
-			input.Limit = *limit
+		if *limit < maxLimit {
+			maxLimit = *limit
 		}
 	}
 
-	servers, resp, err := client.AuthorizationServer.ListAuthorizationServers(ctx, &input)
+	req := client.AuthorizationServerAPI.ListAuthorizationServers(ctx).Limit(int32(maxLimit))
+	if q != "" {
+		req = req.Q(q)
+	}
+	servers, resp, err := req.Execute()
 	if err != nil {
 		logger.Error("listOktaAuthServers", "list_auth_servers_error", err)
 		if strings.Contains(err.Error(), "Not found") {
@@ -102,8 +104,8 @@ func listOktaAuthServers(ctx context.Context, d *plugin.QueryData, _ *plugin.Hyd
 
 	// paging
 	for resp.HasNextPage() {
-		var nextAuthorizationServerSet []*okta.AuthorizationServer
-		resp, err = resp.Next(ctx, &nextAuthorizationServerSet)
+		var nextAuthorizationServerSet []okta.AuthorizationServer
+		resp, err = resp.Next(&nextAuthorizationServerSet)
 		if err != nil {
 			logger.Error("listOktaAuthServers", "list_auth_servers_paging_error", err)
 			return nil, err
@@ -139,7 +141,7 @@ func getOktaAuthServer(ctx context.Context, d *plugin.QueryData, h *plugin.Hydra
 		return nil, err
 	}
 
-	server, _, err := client.AuthorizationServer.GetAuthorizationServer(ctx, authServerId)
+	server, _, err := client.AuthorizationServerAPI.GetAuthorizationServer(ctx, authServerId).Execute()
 	if err != nil {
 		logger.Error("getOktaAuthServer", "get_auth_servers_error", err)
 		return nil, err
